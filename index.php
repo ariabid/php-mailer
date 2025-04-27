@@ -1,6 +1,11 @@
 <?php
 require 'vendor/autoload.php';
 
+// Set up error logging
+ini_set('log_errors', 1);
+ini_set('error_log', __DIR__ . '/logs/error.log');
+
+
 $dotenv = Dotenv\Dotenv::createImmutable(__DIR__);
 $dotenv->load();
 
@@ -10,8 +15,10 @@ header('Access-Control-Allow-Methods: POST');
 header('Access-Control-Allow-Headers: Content-Type');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    $error_message = 'Method not allowed';
+    error_log($error_message);
     http_response_code(405);
-    echo json_encode(['status' => 'error', 'message' => 'Method not allowed']);
+    echo json_encode(['status' => 'error', 'message' => $error_message]);
     exit;
 }
 
@@ -39,6 +46,8 @@ if (!empty($data['email']) && !filter_var($data['email'], FILTER_VALIDATE_EMAIL)
 
 // If there are any validation errors, return them
 if (!empty($errors)) {
+    $error_message = 'Validation errors: ' . json_encode($errors);
+    error_log($error_message);
     http_response_code(422);
     echo json_encode([
         'status' => 'error',
@@ -118,7 +127,10 @@ try {
     echo json_encode(['status' => 'success', 'message' => 'Message sent successfully']);
     
 } catch (Exception $e) {
+    $error_message = 'Mail error: ' . $e->getMessage();
+    error_log($error_message);
     http_response_code(500);
-    echo json_encode(['status' => 'error', 'message' => 'Failed to send message: ' . $mail->ErrorInfo]);
+    echo json_encode(['status' => 'error', 'message' => 'Message could not be sent.']);
+    exit;
 }
 ?>
