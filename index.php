@@ -63,12 +63,17 @@ $email = filter_var($data['email'], FILTER_SANITIZE_EMAIL);
 $phone_number = htmlspecialchars($data['phone_number'], ENT_QUOTES, 'UTF-8');
 $message = htmlspecialchars($data['message'], ENT_QUOTES, 'UTF-8');
 
-// SMTP Configuration from .env
-$smtp_host = $_ENV['SMTP_HOST'];
-$smtp_username = $_ENV['SMTP_USERNAME'];
-$smtp_password = $_ENV['SMTP_PASSWORD'];
-$smtp_port = $_ENV['SMTP_PORT'];
-$smtp_secure = $_ENV['SMTP_ENCRYPTION'];
+// Get mailer configuration
+$mailer_type = strtoupper($_ENV['MAILER'] ?? 'SMTP');
+
+// SMTP Configuration if needed
+if ($mailer_type === 'SMTP') {
+    $smtp_host = $_ENV['SMTP_HOST'];
+    $smtp_username = $_ENV['SMTP_USERNAME'];
+    $smtp_password = $_ENV['SMTP_PASSWORD'];
+    $smtp_port = $_ENV['SMTP_PORT'];
+    $smtp_secure = $_ENV['SMTP_ENCRYPTION'];
+}
 
 // Email configuration from .env
 $from_email = $_ENV['MAIL_FROM'];
@@ -90,42 +95,68 @@ use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
 try {
-    $mail = new PHPMailer(true);
+    $success = false;
     
-    // Server settings
-    $mail->isSMTP();
-    $mail->Host = $smtp_host;
-    
-    // Only enable SMTP authentication if credentials are provided
-    if ($smtp_username !== 'null' && $smtp_password !== 'null') {
-        $mail->SMTPAuth = true;
-        $mail->Username = $smtp_username;
-        $mail->Password = $smtp_password;
+    if ($mailer_type === 'SMTP') {
+        $mail = new PHPMailer(true);
+        
+        // Server settings
+        $mail->isSMTP();
+        $mail->Host = $smtp_host;
+        
+        // Only enable SMTP authentication if credentials are provided
+        if ($smtp_username !== 'null' && $smtp_password !== 'null') {
+            $mail->SMTPAuth = true;
+            $mail->Username = $smtp_username;
+            $mail->Password = $smtp_password;
+        } else {
+            $mail->SMTPAuth = false;
+        }
+        
+        // Set encryption if specified
+        if ($smtp_secure !== 'none') {
+            $mail->SMTPSecure = $smtp_secure;
+        }
+        
+        $mail->Port = $smtp_port;
+        
+        // Recipients
+        $mail->setFrom($from_email, $from_name);
+        $mail->addAddress($to_email);
+        $mail->addReplyTo($email, $name);
+        
+        // Content
+        $mail->isHTML(false);
+        $mail->Subject = $email_subject;
+        $mail->Body = $email_body;
+        
+        $success = $mail->send();
     } else {
-        $mail->SMTPAuth = false;
+        // Use PHP's mail() function
+        $headers = [
+            'From' => "$from_name <$from_email>",
+            'Reply-To' => $email,
+            'X-Mailer' => 'PHP/' . phpversion(),
+            'Content-Type' => 'text/plain; charset=utf-8'
+        ];
+        
+        // Convert headers array to string
+        $headers_str = '';
+        foreach ($headers as $key => $value) {
+            $headers_str .= "$key: $value\r\n";
+        }
+        
+        $success = mail($to_email, $email_subject, $email_body, $headers_str);
     }
-    
-    // Set encryption if specified
-    if ($smtp_secure !== 'none') {
-        $mail->SMTPSecure = $smtp_secure;
+    if ($success) {
+        http_response_code(200);
+        echo json_encode(['status' => 'success', 'message' => 'Message sent successfully']);
+    } else {
+        $error_message = 'Message could not be sent';
+        error_log($error_message);
+        http_response_code(500);
+        echo json_encode(['status' => 'error', 'message' => $error_message]);
     }
-    
-    $mail->Port = $smtp_port;
-    
-    // Recipients
-    $mail->setFrom($from_email, $from_name);
-    $mail->addAddress($to_email);
-    $mail->addReplyTo($email, $name);
-    
-    // Content
-    $mail->isHTML(false);
-    $mail->Subject = $email_subject;
-    $mail->Body = $email_body;
-    
-    $mail->send();
-    http_response_code(200);
-    echo json_encode(['status' => 'success', 'message' => 'Message sent successfully']);
-    
 } catch (Exception $e) {
     $error_message = 'Mail error: ' . $e->getMessage();
     error_log($error_message);
