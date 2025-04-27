@@ -28,13 +28,13 @@ $errors = [];
 $required_fields = ['name', 'email', 'phone_number', 'message'];
 foreach ($required_fields as $field) {
     if (empty($data[$field])) {
-        $errors[$field][] = "The $field field is required";
+        $errors[$field] = "The $field field is required";
     }
 }
 
 // Validate email format if email is provided
 if (!empty($data['email']) && !filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
-    $errors['email'][] = 'The email must be a valid email address';
+    $errors['email'] = 'The email must be a valid email address';
 }
 
 // If there are any validation errors, return them
@@ -49,10 +49,10 @@ if (!empty($errors)) {
 }
 
 // Sanitize inputs
-$name = filter_var($data['name'], FILTER_SANITIZE_STRING);
+$name = htmlspecialchars($data['name'], ENT_QUOTES, 'UTF-8');
 $email = filter_var($data['email'], FILTER_SANITIZE_EMAIL);
-$phone_number = filter_var($data['phone_number'], FILTER_SANITIZE_STRING);
-$message = filter_var($data['message'], FILTER_SANITIZE_STRING);
+$phone_number = htmlspecialchars($data['phone_number'], ENT_QUOTES, 'UTF-8');
+$message = htmlspecialchars($data['message'], ENT_QUOTES, 'UTF-8');
 
 // SMTP Configuration from .env
 $smtp_host = $_ENV['SMTP_HOST'];
