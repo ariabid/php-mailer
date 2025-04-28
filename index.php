@@ -122,7 +122,13 @@ try {
         
         // Recipients
         $mail->setFrom($from_email, $from_name);
-        $mail->addAddress($to_email);
+        // Handle multiple recipients
+        $recipients = array_map('trim', explode(',', $to_email));
+        foreach ($recipients as $recipient) {
+            if (filter_var($recipient, FILTER_VALIDATE_EMAIL)) {
+                $mail->addAddress($recipient);
+            }
+        }
         $mail->addReplyTo($email, $name);
         
         // Content
@@ -146,7 +152,13 @@ try {
             $headers_str .= "$key: $value\r\n";
         }
         
-        $success = mail($to_email, $email_subject, $email_body, $headers_str);
+        // Handle multiple recipients for mail() function
+        $recipients = array_map('trim', explode(',', $to_email));
+        $valid_recipients = array_filter($recipients, function($email) {
+            return filter_var($email, FILTER_VALIDATE_EMAIL);
+        });
+        $to = implode(',', $valid_recipients);
+        $success = mail($to, $email_subject, $email_body, $headers_str);
     }
     if ($success) {
         http_response_code(200);
